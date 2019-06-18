@@ -1,16 +1,13 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+ENV['VAGRANT_NO_PARALLEL'] = 'yes'
+
 Vagrant.configure("2") do |config|
 
   nodes = (1..(ENV["NUM_NODES"]||3).to_i).map {|i| "node#{i}.example.org"}
   verbosity = ENV["VERBOSITY"]||""
 
-  config.hostmanager.enabled = true
-  config.hostmanager.manage_host = false
-  config.hostmanager.manage_guest = false
-  config.hostmanager.ignore_private_ip = false
-  config.hostmanager.include_offline = false
 
   if Vagrant.has_plugin?("vagrant-cachier")
     config.cache.scope = :box
@@ -44,57 +41,17 @@ Vagrant.configure("2") do |config|
       cp /home/vagrant/.ssh/authorized_keys /root/.ssh/authorized_keys
       sed -i 's/127.0.0.1.*krib.example.org/192.168.17.11 krib.example.org/' /etc/hosts
     EOF
-    # krib.vm.provision :shell, :inline => <<-EOF
-    #   set -ex
-      # sudo yum install -y git
-      # curl -fsSL get.rebar.digital/stable | bash -s -- install
-      # sudo systemctl daemon-reload
-      # sudo systemctl enable dr-provision
-      # sudo systemctl start dr-provision
-      # /usr/local/bin/drpcli contents upload catalog:drp-community-content-stable
-      # while [[ "$?" -ne 0 ]]
-      # do
-      #   /usr/local/bin/drpcli contents upload catalog:drp-community-content-stable
-      # done
-      # /usr/local/bin/drpcli contents upload catalog:task-library-stable
-      # /usr/local/bin/drpcli bootenvs uploadiso sledgehammer
-      # /usr/local/bin/drpcli bootenvs uploadiso centos-7-install
-      # /usr/local/bin/drpcli prefs set defaultWorkflow discover-base unknownBootEnv discovery
-      # /usr/local/bin/drpcli plugin_providers upload certs from catalog:certs-stable
-      # /usr/local/bin/drpcli contents upload catalog:krib-stable
-      # echo '{
-      #   "Name": "local_subnet",
-      #   "Subnet": "192.168.17.0/24",
-      #   "ActiveStart": "192.168.17.50",
-      #   "ActiveEnd": "192.168.17.200",
-      #   "ActiveLeaseTime": 60,
-      #   "Enabled": true,
-      #   "Proxy": true,
-      #   "ReservedLeaseTime": 7200,
-      #   "Strategy": "MAC",
-      #   "Options": [
-      #     { "Code": 3, "Value": "192.168.17.1", "Description": "Default Gateway" },
-      #     { "Code": 6, "Value": "8.8.8.8", "Description": "DNS Servers" },
-      #     { "Code": 15, "Value": "example.org", "Description": "Domain Name" }
-      #   ]
-      # }' > /tmp/local_subnet.json
-      # /usr/local/bin/drpcli subnets create - < /tmp/local_subnet.json
-
-      # echo '
-      # ---
-      # Name: "home-cluster"
-      # Description: "Kubernetes install-to-local-disk"
-      # Params:
-      #   krib/cluster-profile: "home-cluster"
-      #   etcd/cluster-profile: "home-cluster"
-      # Meta:
-      #   color: "purple"
-      #   icon: "ship"
-      #   title: "My Home Kubernetes Cluster"
-      # ' > /tmp/krib-config.yaml
-
-      # /usr/local/bin/drpcli profiles create - < /tmp/krib-config.yaml
-    # EOF
+    krib.vm.provision :ansible do |ansible|
+      ansible.groups = {
+        "krib" => ["krib.example.org"],
+      }
+      ansible.verbose = verbosity
+      ansible.playbook = 'drp.yml'
+      ansible.become = true
+      ansible.force_remote_user = false
+      ansible.limit = 'all,localhost'
+      ansible.raw_ssh_args = ["-o IdentityFile=~/.ssh/id_rsa"]
+    end
   end
 
   nodes.each_with_index do |name, idx|

@@ -1,0 +1,106 @@
+---
+
+- hosts: krib
+  become: yes
+  vars:
+    drpcli: /usr/local/bin/drpcli
+    istio_version: 1.1.9
+  tasks:
+  - name: Install git
+    package:
+      name: git
+      state: present
+
+  - name: Get install script
+    get_url:
+      url: http://get.rebar.digital/stable
+      dest: /bin/drp-installer
+      mode: 0700
+
+  - name: Run installer
+    command: /bin/drp-installer install --disable-dhcp
+
+  - name: Start and enable dr-provision
+    service:
+      name: dr-provision
+      state: started
+      enabled: yes
+
+  - name: Ensure required content is enabled
+    command: '{{ drpcli }} contents upload {{ item }}'
+    retries: 6
+    delay: 10
+    loop:
+    - catalog:drp-community-content-stable
+    - catalog:task-library-stable
+
+  - name: Upload discovery and centos bootenvs
+    command: '{{ drpcli }} bootenvs uploadiso {{ item }}'
+    loop:
+    - sledgehammer
+    - centos-7-install
+
+  - name: Set default workflow to discovery
+    command: '{{ drpcli }} prefs set defaultWorkflow discover-base unknownBootEnv discovery'
+
+  - name: Enable certs plugin
+    command: '{{ drpcli }} plugin_providers upload certs from catalog:certs-stable'
+
+  - name: Enable krib content
+    command: '{{ drpcli }} contents upload catalog:krib-stable'
+
+  - name: Create home-cluster profile
+    command: '{{ drpcli }} profiles create - {{ profile | to_json }}'
+    vars:
+      profile:
+        Name: "home-cluster"
+        Description: "Kubernetes install-to-local-disk"
+        Params:
+          krib/cluster-profile: "home-cluster"
+          etcd/cluster-profile: "home-cluster"
+          helm/charts:
+          - chart: istio-{{ istio_version }}/install/kubernetes/helm/istio-init
+            name: istio-init
+            namespace: istio-system
+            targz: https://github.com/istio/istio/releases/download/{{ istio_version }}/istio-{{ istio_version }}-linux.tar.gz
+            params:
+              set: certmanager.enabled=true
+            sleep: 10
+            wait: true
+            kubectlbefore:
+            - get nodes
+            kubectlafter:
+            - get nodes
+          - chart: istio-{{ istio_version }}/install/kubernetes/helm/istio
+            name: istio
+            namespace: istio-system
+            targz: https://github.com/istio/istio/releases/download/{{ istio_version }}/istio-{{ istio_version }}-linux.tar.gz
+            params:
+              set: grafana.enabled=true,certmanager.enabled=true,global.k8sIngress.enabled=true
+            sleep: 10
+            wait: true
+            kubectlbefore:
+            - get nodes
+            kubectlafter:
+            - get nodes
+          - chart: rook-stable/rook-ceph
+            kubectlafter:
+            - apply -f cluster.yaml
+            name: rook-ceph
+            namespace: rook-ceph-system
+            repos:
+              rook-stable: https://charts.rook.io/stable
+            templatesafter:
+            - name: helm-rook.after.sh.tmpl
+              nodes: leader
+            templatesbefore:
+            - name: helm-rook.before.sh.tmpl
+              nodes: all
+              runIfInstalled: true
+            templates:
+              cluster: helm-rook.cfg.tmpl
+            wait: true
+        Meta:
+          color: "purple"
+          icon: "ship"
+          title: "My Home Kubernetes Cluster"
