@@ -5,20 +5,54 @@
   vars:
     drpcli: /usr/local/bin/drpcli
     istio_version: 1.1.9
+    boot_disk: vda
+    admin_ssh_pub_key: none
+    subnet:
+      Name: local_subnet
+      Subnet: 192.168.17.0/24
+      ActiveStart: 192.168.17.50
+      ActiveEnd: 192.168.17.200
+      ActiveLeaseTime: 60
+      Enabled: true
+      Proxy: true
+      ReservedLeaseTime: 7200
+      Strategy: MAC
+      Options:
+      - Code: 3
+        Value: 192.168.17.1
+        Description: Default Gateway
+      - Code: 6
+        Value: 8.8.8.8
+        Description: DNS Servers
+      - Code: 15
+        Value: example.org
+        Description: Domain Name
   tasks:
   - name: Install git
     package:
       name: git
       state: present
 
-  - name: Get install script
-    get_url:
-      url: http://get.rebar.digital/stable
-      dest: /bin/drp-installer
-      mode: 0700
+  - name: Check if drp is already provisioned
+    stat:
+      path: /etc/.drp_provisioned
+    register: provisioned
 
-  - name: Run installer
-    command: /bin/drp-installer install --disable-dhcp
+  - when: not provisioned.stat.exists
+    block:
+    - name: Get install script
+      get_url:
+        url: http://get.rebar.digital/stable
+        dest: /bin/drp-installer
+        mode: 0700
+
+    - name: Run installer
+      command: /bin/drp-installer install --disable-dhcp
+
+    - name: Mark that installer has run
+      file:
+        path: /etc/.drp_provisioned
+        state: touch
 
   - name: Start and enable dr-provision
     service:
@@ -30,12 +64,16 @@
     command: '{{ drpcli }} contents upload {{ item }}'
     retries: 6
     delay: 10
+    until: result.rc == 0
     loop:
     - catalog:drp-community-content-stable
     - catalog:task-library-stable
+    register: result
 
   - name: Upload discovery and centos bootenvs
     command: '{{ drpcli }} bootenvs uploadiso {{ item }}'
+    changed_when: "'already has all required ISO files' in result.stderr"
+    register: result
     loop:
     - sledgehammer
     - centos-7-install
@@ -49,8 +87,24 @@
   - name: Enable krib content
     command: '{{ drpcli }} contents upload catalog:krib-stable'
 
+  - name: Create provisioning subnet
+    command: "{{ drpcli }} subnets create '{{ subnet | to_json }}'"
+    failed_when:
+    - result.rc !=0
+    - "'already exists' not in result.stderr"
+    changed_when:
+    - "'already exists' not in result.stderr"
+    register: result
+
+
   - name: Create home-cluster profile
-    command: '{{ drpcli }} profiles create - {{ profile | to_json }}'
+    command: "{{ drpcli }} profiles create '{{ profile | to_json }}'"
+    failed_when:
+    - result.rc !=0
+    - "'already exists' not in result.stderr"
+    changed_when:
+    - "'already exists' not in result.stderr"
+    register: result
     vars:
       profile:
         Name: "home-cluster"
@@ -58,6 +112,9 @@
         Params:
           krib/cluster-profile: "home-cluster"
           etcd/cluster-profile: "home-cluster"
+          operating-system-disk: '{{ boot_disk }}'
+          access-keys:
+            admin: '{{ admin_ssh_pub_key }}'
           helm/charts:
           - chart: istio-{{ istio_version }}/install/kubernetes/helm/istio-init
             name: istio-init
