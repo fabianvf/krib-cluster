@@ -5,7 +5,7 @@ ENV['VAGRANT_NO_PARALLEL'] = 'yes'
 
 Vagrant.configure("2") do |config|
 
-  nodes = (1..(ENV["NUM_NODES"]||3).to_i).map {|i| "node#{i}.example.org"}
+  nodes = (1..(ENV["NUM_NODES"]||3).to_i).map {|i| "node#{i}.example.net"}
   verbosity = ENV["VERBOSITY"]||""
 
 
@@ -16,21 +16,20 @@ Vagrant.configure("2") do |config|
     }
   end
 
-
-  config.vm.define 'krib.example.org', :primary => true do |krib|
+  config.vm.define 'krib.example.net', :primary => true do |krib|
     krib.vm.box = "centos/7"
-    krib.vm.hostname = 'krib.example.org'
+    krib.vm.hostname = 'krib.example.net'
     krib.hostmanager.enabled = true
     krib.hostmanager.manage_host = true
     krib.hostmanager.manage_guest = false
     krib.vm.network :private_network,
       :mac => "52:11:22:33:44:41",
-      :ip => '192.168.17.11',
-      :libvirt__network_name => "home-cluster",
+      :ip => '192.168.87.11',
+      :libvirt__network_name => "krib-cluster",
       :libvirt__dhcp_enabled => true,
       :libvirt__netmask => "255.255.255.0",
       :libvirt__dhcp_bootp_file => "lpxelinux.0",
-      :libvirt__dhcp_bootp_server => "192.168.17.11"
+      :libvirt__dhcp_bootp_server => "192.168.87.11"
 
     krib.vm.synced_folder '.', '/vagrant', disabled: true
 
@@ -39,11 +38,11 @@ Vagrant.configure("2") do |config|
       cat /tmp/key >> /home/vagrant/.ssh/authorized_keys
       mkdir -p /root/.ssh
       cp /home/vagrant/.ssh/authorized_keys /root/.ssh/authorized_keys
-      sed -i 's/127.0.0.1.*krib.example.org/192.168.17.11 krib.example.org/' /etc/hosts
+      sed -i 's/127.0.0.1.*krib.example.net/192.168.87.11 krib.example.net/' /etc/hosts
     EOF
     krib.vm.provision :ansible do |ansible|
       ansible.groups = {
-        "krib" => ["krib.example.org"],
+        "krib" => ["krib.example.net"],
       }
       ansible.verbose = verbosity
       ansible.playbook = 'drp.yml'
@@ -52,13 +51,13 @@ Vagrant.configure("2") do |config|
       ansible.limit = 'all,localhost'
       ansible.raw_ssh_args = ["-o IdentityFile=~/.ssh/id_rsa"]
       ansible.host_vars = {
-        "krib.example.org" => {
+        "krib.example.net" => {
           "boot_disk": "vda",
           "subnet": {
             "Name": "local_subnet",
-            "Subnet": "192.168.17.0/24",
-            "ActiveStart": "192.168.17.50",
-            "ActiveEnd": "192.168.17.200",
+            "Subnet": "192.168.87.0/24",
+            "ActiveStart": "192.168.87.50",
+            "ActiveEnd": "192.168.87.200",
             "ActiveLeaseTime": 60,
             "Enabled": true,
             "Proxy": true,
@@ -66,7 +65,7 @@ Vagrant.configure("2") do |config|
             "Strategy": "MAC",
             "Options": [{
                 "Code": 3,
-                "Value": "192.168.17.1",
+                "Value": "192.168.87.1",
                 "Description": "Default Gateway"
               }, {
                 "Code": 6,
@@ -74,7 +73,7 @@ Vagrant.configure("2") do |config|
                 "Description": "DNS Servers"
               }, {
                 "Code": 15,
-                "Value": "example.org",
+                "Value": "example.net",
                 "Description": "Domain Name"
               }]
       }}}
@@ -91,8 +90,8 @@ Vagrant.configure("2") do |config|
         domain.storage :file, :size => '40G', :type => 'raw'
         domain.storage :file, :size => '40G', :type => 'raw'
         domain.mgmt_attach = 'false'
-        domain.management_network_name = 'home-cluster'
-        domain.management_network_address = "192.168.17.0/24"
+        domain.management_network_name = 'krib-cluster'
+        domain.management_network_address = "192.168.87.0/24"
         domain.management_network_mode = "nat"
         domain.boot 'network'
         domain.boot 'hd'
