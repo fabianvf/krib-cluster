@@ -72,7 +72,7 @@
 
   - name: Upload discovery and centos bootenvs
     command: '{{ drpcli }} bootenvs uploadiso {{ item }}'
-    changed_when: "'already has all required ISO files' in result.stderr"
+    changed_when: "'already has all required ISO files' not in result.stderr"
     register: result
     loop:
     - sledgehammer
@@ -116,18 +116,6 @@
           access-keys:
             admin: '{{ admin_ssh_pub_key }}'
           helm/charts:
-          - chart: istio-{{ istio_version }}/install/kubernetes/helm/istio-init
-            name: istio-init
-            namespace: istio-system
-            targz: https://github.com/istio/istio/releases/download/{{ istio_version }}/istio-{{ istio_version }}-linux.tar.gz
-            params:
-              set: certmanager.enabled=true
-            sleep: 10
-            wait: true
-            kubectlbefore:
-            - get nodes
-            kubectlafter:
-            - get nodes
           - chart: istio-{{ istio_version }}/install/kubernetes/helm/istio
             name: istio
             namespace: istio-system
