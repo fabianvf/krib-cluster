@@ -5,13 +5,13 @@
   vars:
     drpcli: /usr/local/bin/drpcli
     istio_version: 1.1.9
-    boot_disk: vda
+    boot_disk: sda
     admin_ssh_pub_key: none
     subnet:
       Name: local_subnet
-      Subnet: 192.168.17.0/24
-      ActiveStart: 192.168.17.50
-      ActiveEnd: 192.168.17.200
+      Subnet: 192.168.1.0/24
+      ActiveStart: 192.168.1.50
+      ActiveEnd: 192.168.1.200
       ActiveLeaseTime: 60
       Enabled: true
       Proxy: true
@@ -19,13 +19,13 @@
       Strategy: MAC
       Options:
       - Code: 3
-        Value: 192.168.17.1
+        Value: 192.168.1.1
         Description: Default Gateway
       - Code: 6
         Value: 8.8.8.8
         Description: DNS Servers
       - Code: 15
-        Value: example.org
+        Value: example.com
         Description: Domain Name
   tasks:
   - name: Install git
@@ -97,7 +97,7 @@
     register: result
 
 
-  - name: Create home-cluster profile
+  - name: Create krib-cluster profile
     command: "{{ drpcli }} profiles create '{{ profile | to_json }}'"
     failed_when:
     - result.rc !=0
@@ -107,11 +107,11 @@
     register: result
     vars:
       profile:
-        Name: "home-cluster"
+        Name: "krib-cluster"
         Description: "Kubernetes install-to-local-disk"
         Params:
-          krib/cluster-profile: "home-cluster"
-          etcd/cluster-profile: "home-cluster"
+          krib/cluster-profile: "krib-cluster"
+          etcd/cluster-profile: "krib-cluster"
           operating-system-disk: '{{ boot_disk }}'
           access-keys:
             admin: '{{ admin_ssh_pub_key }}'

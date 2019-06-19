@@ -51,6 +51,33 @@ Vagrant.configure("2") do |config|
       ansible.force_remote_user = false
       ansible.limit = 'all,localhost'
       ansible.raw_ssh_args = ["-o IdentityFile=~/.ssh/id_rsa"]
+      ansible.host_vars = {
+        "krib.example.org" => {
+          "boot_disk": "vda",
+          "subnet": {
+            "Name": "local_subnet",
+            "Subnet": "192.168.17.0/24",
+            "ActiveStart": "192.168.17.50",
+            "ActiveEnd": "192.168.17.200",
+            "ActiveLeaseTime": 60,
+            "Enabled": true,
+            "Proxy": true,
+            "ReservedLeaseTime": 7200,
+            "Strategy": "MAC",
+            "Options": [{
+                "Code": 3,
+                "Value": "192.168.17.1",
+                "Description": "Default Gateway"
+              }, {
+                "Code": 6,
+                "Value": "8.8.8.8",
+                "Description": "DNS Servers"
+              }, {
+                "Code": 15,
+                "Value": "example.org",
+                "Description": "Domain Name"
+              }]
+      }}}
     end
   end
 
