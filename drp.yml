@@ -4,29 +4,6 @@
   become: yes
   vars:
     drpcli: /usr/local/bin/drpcli
-    istio_version: 1.1.9
-    boot_disk: sda
-    admin_ssh_pub_key: none
-    subnet:
-      Name: local_subnet
-      Subnet: 192.168.1.0/24
-      ActiveStart: 192.168.1.50
-      ActiveEnd: 192.168.1.200
-      ActiveLeaseTime: 60
-      Enabled: true
-      Proxy: true
-      ReservedLeaseTime: 7200
-      Strategy: MAC
-      Options:
-      - Code: 3
-        Value: 192.168.1.1
-        Description: Default Gateway
-      - Code: 6
-        Value: 8.8.8.8
-        Description: DNS Servers
-      - Code: 15
-        Value: example.com
-        Description: Domain Name
   tasks:
   - name: Install git
     package:
@@ -95,7 +72,7 @@
     changed_when:
     - "'already exists' not in result.stderr"
     register: result
-
+    when: subnet is defined
 
   - name: Create krib-cluster profile
     command: "{{ drpcli }} profiles create '{{ profile | to_json }}'"
@@ -112,22 +89,13 @@
         Params:
           krib/cluster-profile: "krib-cluster"
           etcd/cluster-profile: "krib-cluster"
-          operating-system-disk: '{{ boot_disk }}'
+          krib/cluster-domain: "{{ cluster_domain | default(None) }}"
+          krib/cluster-master-count: '{{ master_count | default(1) }}'
+          # krib/cluster-kubernetes-version: "{{ kube_version | default('1.14.1') }}"
+          operating-system-disk: '{{ boot_disk | default("sda") }}'
           access-keys:
-            admin: '{{ admin_ssh_pub_key }}'
+            admin: '{{ admin_ssh_pub_key | default(None) }}'
           helm/charts:
-          - chart: istio-{{ istio_version }}/install/kubernetes/helm/istio
-            name: istio
-            namespace: istio-system
-            targz: https://github.com/istio/istio/releases/download/{{ istio_version }}/istio-{{ istio_version }}-linux.tar.gz
-            params:
-              set: grafana.enabled=true,certmanager.enabled=true,global.k8sIngress.enabled=true
-            sleep: 10
-            wait: true
-            kubectlbefore:
-            - get nodes
-            kubectlafter:
-            - get nodes
           - chart: rook-stable/rook-ceph
             kubectlafter:
             - apply -f cluster.yaml
