@@ -1,0 +1,92 @@
+---
+
+# DRP settings
+
+drpcli: /usr/local/bin/drpcli
+default_workflow: discover-base unknownBootEnv discovery
+subdomain: example.net
+
+enable_dhcp: no
+# If enable_dhcp is true, subnet is required
+subnet: None
+
+# KRIB settings
+
+cluster_name: krib-cluster
+cluster_domain: None
+master_count: 1
+kube_version: '1.14.1'
+node_boot_disk: sda
+admin_ssh_pub_key: None
+enable_rook_ceph: yes
+
+rook_ceph_cluster:
+  spec:
+    mon:
+      allowMultiplePerNode: yes
+    dashboard:
+      enabled: yes
+    storage:
+      useAllDevices: yes
+      useAllNodes: yes
+
+
+rook_ceph_chart:
+  chart: rook-stable/rook-ceph
+  kubectlafter:
+  - apply -f cluster.yaml
+  - "patch cephcluster rook-ceph -n rook-ceph -p '{{ rook_ceph_cluster|to_json }}'"
+  name: rook-ceph
+  namespace: rook-ceph-system
+  repos:
+    rook-stable: https://charts.rook.io/stable
+  templatesafter:
+  - name: helm-rook.after.sh.tmpl
+    nodes: leader
+  templatesbefore:
+  - name: helm-rook.before.sh.tmpl
+    nodes: all
+    runIfInstalled: true
+  templates:
+    cluster: helm-rook.cfg.tmpl
+  wait: true
+
+traefik_options:
+- ssl.enabled=true
+- ssl.generateTLS=true
+- dashboard.enabled=true
+- dashboard.domain=traefik.{{ subdomain }}
+- service.nodePorts.http=80
+- service.nodePorts.https=443
+
+traefik_chart:
+  chart: stable/traefik
+  name: traefik
+  namespace: kube-system
+  params:
+    set: '{{ traefik_options | join(",") }}'
+  wait: true
+
+helm_charts:
+- '{{ rook_ceph_chart }}'
+- '{{ traefik_chart }}'
+
+icon_meta:
+  color: "purple"
+  icon: "ship"
+  title: "My Kubernetes Cluster"
+
+profile:
+  Name: "krib-cluster"
+  Description: "Kubernetes install-to-local-disk"
+  Params:
+    krib/cluster-profile: '{{ cluster_name }}'
+    etcd/cluster-profile: '{{ cluster_name }}'
+    krib/cluster-domain: "{{ cluster_domain }}"
+    krib/cluster-master-count: '{{ master_count }}'
+    krib/cluster-kubernetes-version: "{{ kube_version }}"
+    operating-system-disk: '{{ node_boot_disk }}'
+    access-keys:
+      admin: '{{ admin_ssh_pub_key }}'
+    helm/charts: '{{ helm_charts }}'
+  Meta: '{{ icon_meta }}'

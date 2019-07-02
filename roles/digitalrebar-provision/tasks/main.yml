@@ -1,0 +1,90 @@
+---
+
+- fail:
+    msg: If enable_dhcp is true, subnet must be defined
+  when: enable_dhcp and not subnet
+
+- fail:
+    msg: >
+      Subnet will not be set if enable_dhcp is false,
+      please enable_dhcp or unset subnet
+  when: subnet and not enable_dhcp
+
+- name: Ensure git is installed
+  package:
+    name: git
+    state: present
+
+- name: Check if drp is already provisioned
+  stat:
+    path: /etc/dr-provision/.drp_provisioned
+  register: provisioned
+
+- when: not provisioned.stat.exists
+  block:
+  - name: Get install script
+    get_url:
+      url: http://get.rebar.digital/stable
+      dest: /bin/drp-installer
+      mode: 0700
+
+  - name: Run installer
+    command: /bin/drp-installer install {{ ''  if enable_dhcp else '--disable-dhcp' }}
+
+  - name: Mark that installer has run
+    file:
+      path: /etc/dr-provision/.drp_provisioned
+      state: touch
+
+- name: Start and enable dr-provision
+  service:
+    name: dr-provision
+    state: started
+    enabled: yes
+
+- name: Ensure required content is enabled
+  command: '{{ drpcli }} contents upload {{ item }}'
+  retries: 6
+  delay: 10
+  until: result.rc == 0
+  loop:
+  - catalog:drp-community-content-stable
+  - catalog:task-library-stable
+  register: result
+
+- name: Upload discovery and centos bootenvs
+  command: '{{ drpcli }} bootenvs uploadiso {{ item }}'
+  changed_when: "'already has all required ISO files' not in result.stderr"
+  register: result
+  loop:
+  - sledgehammer
+  - centos-7-install
+
+- name: Set default workflow
+  command: '{{ drpcli }} prefs set defaultWorkflow {{ default_workflow }}'
+
+- name: Enable certs plugin
+  command: '{{ drpcli }} plugin_providers upload certs from catalog:certs-stable'
+
+- name: Enable krib content
+  command: '{{ drpcli }} contents upload catalog:krib-stable'
+
+- name: Create provisioning subnet
+  command: "{{ drpcli }} subnets create '{{ subnet | to_json }}'"
+  failed_when:
+  - result.rc !=0
+  - "'already exists' not in result.stderr"
+  changed_when:
+  - "'already exists' not in result.stderr"
+  register: result
+  when: enable_dhcp and subnet
+
+- name: Create krib-cluster profile
+  command: "{{ drpcli }} profiles create '{{ profile | to_json }}'"
+  failed_when:
+  - result.rc !=0
+  - "'already exists' not in result.stderr"
+  changed_when:
+  - "'already exists' not in result.stderr"
+  register: result
+  when: profile

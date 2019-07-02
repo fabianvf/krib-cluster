@@ -21,7 +21,7 @@ Vagrant.configure("2") do |config|
     krib.vm.hostname = 'krib.example.net'
     krib.hostmanager.enabled = true
     krib.hostmanager.manage_host = true
-    krib.hostmanager.manage_guest = false
+    krib.hostmanager.manage_guest = true
     krib.vm.network :private_network,
       :mac => "52:11:22:33:44:41",
       :ip => '192.168.87.11',
@@ -29,7 +29,8 @@ Vagrant.configure("2") do |config|
       :libvirt__dhcp_enabled => true,
       :libvirt__netmask => "255.255.255.0",
       :libvirt__dhcp_bootp_file => "lpxelinux.0",
-      :libvirt__dhcp_bootp_server => "192.168.87.11"
+      :libvirt__dhcp_bootp_server => "192.168.87.11",
+      :libvirt__domain_name => "example.net"
 
     krib.vm.synced_folder '.', '/vagrant', disabled: true
 
@@ -52,7 +53,7 @@ Vagrant.configure("2") do |config|
       ansible.raw_ssh_args = ["-o IdentityFile=~/.ssh/id_rsa"]
       ansible.extra_vars = {
         "boot_disk": "vda",
-        "cluster_domaon": "example.net",
+        "cluster_domain": "example.net",
         "master_count": nodes.length >= 3 ? 3 : 1
       }
     end
