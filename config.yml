@@ -2,7 +2,7 @@
 # Overrides for options in the digitalrebar-provision role go here
 # The options here should work for the provided Vagrantfile
 
-boot_disk: vda
+node_boot_disk: vda
 cluster_domain: example.net
 admin_ssh_pub_key_file: '~/.ssh/id_rsa.pub'
 admin_ssh_pub_key: '{{ lookup("file", admin_ssh_pub_key_file) }}'
