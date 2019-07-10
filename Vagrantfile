@@ -54,7 +54,7 @@ Vagrant.configure("2") do |config|
       ansible.extra_vars = {
         "boot_disk": "vda",
         "cluster_domain": "example.net",
-        "master_count": nodes.length >= 3 ? 3 : 1
+        "master_count": ENV["NUM_MASTERS"]||(nodes.length >= 3 ? 3 : 1)
       }
     end
   end

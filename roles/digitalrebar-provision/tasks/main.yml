@@ -2,13 +2,13 @@
 
 - fail:
     msg: If enable_dhcp is true, subnet must be defined
-  when: enable_dhcp and not subnet
+  when: (enable_dhcp|bool) and not (subnet|bool)
 
 - fail:
     msg: >
       Subnet will not be set if enable_dhcp is false,
       please enable_dhcp or unset subnet
-  when: subnet and not enable_dhcp
+  when: (subnet|bool) and not (enable_dhcp|bool)
 
 - name: Ensure git is installed
   package:
@@ -31,16 +31,20 @@
   - name: Run installer
     command: /bin/drp-installer install {{ ''  if enable_dhcp else '--disable-dhcp' }}
 
+  - name: Start and enable dr-provision
+    service:
+      name: dr-provision
+      state: started
+      enabled: yes
+
   - name: Mark that installer has run
     file:
       path: /etc/dr-provision/.drp_provisioned
       state: touch
-
-- name: Start and enable dr-provision
-  service:
-    name: dr-provision
-    state: started
-    enabled: yes
+    retries: 3
+    delay: 5
+    register: result
+    until: not result is failed
 
 - name: Ensure required content is enabled
   command: '{{ drpcli }} contents upload {{ item }}'

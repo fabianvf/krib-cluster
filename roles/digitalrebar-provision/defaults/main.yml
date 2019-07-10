@@ -4,7 +4,8 @@
 
 drpcli: /usr/local/bin/drpcli
 default_workflow: discover-base unknownBootEnv discovery
-subdomain: example.net
+node_subdomain: example.net
+ingress_subdomain: apps.example.net
 
 enable_dhcp: no
 # If enable_dhcp is true, subnet is required
@@ -29,13 +30,11 @@ rook_ceph_cluster:
     storage:
       useAllDevices: yes
       useAllNodes: yes
-
-
 rook_ceph_chart:
   chart: rook-stable/rook-ceph
   kubectlafter:
   - apply -f cluster.yaml
-  - "patch cephcluster rook-ceph -n rook-ceph -p '{{ rook_ceph_cluster|to_json }}'"
+  - "patch cephcluster rook-ceph -n rook-ceph -p {{ rook_ceph_cluster|to_json }}"
   name: rook-ceph
   namespace: rook-ceph-system
   repos:
@@ -55,7 +54,7 @@ traefik_options:
 - ssl.enabled=true
 - ssl.generateTLS=true
 - dashboard.enabled=true
-- dashboard.domain=traefik.{{ subdomain }}
+- dashboard.domain=traefik.{{ ingress_subdomain }}
 - service.nodePorts.http=80
 - service.nodePorts.https=443
 
