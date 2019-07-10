@@ -4,8 +4,8 @@
 
 drpcli: /usr/local/bin/drpcli
 default_workflow: discover-base unknownBootEnv discovery
-node_subdomain: example.net
-ingress_subdomain: apps.example.net
+node_subdomain: example.com
+ingress_subdomain: apps.example.com
 
 enable_dhcp: no
 # If enable_dhcp is true, subnet is required

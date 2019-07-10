@@ -7,6 +7,7 @@ Vagrant.configure("2") do |config|
 
   nodes = (1..(ENV["NUM_NODES"]||3).to_i).map {|i| "node#{i}.example.net"}
   verbosity = ENV["VERBOSITY"]||""
+  ssh_key_file = ENV["SSH_PUB_KEY"]||"~/.ssh/id_rsa.pub"
 
 
   if Vagrant.has_plugin?("vagrant-cachier")
@@ -34,12 +35,11 @@ Vagrant.configure("2") do |config|
 
     krib.vm.synced_folder '.', '/vagrant', disabled: true
 
-    krib.vm.provision :file, :source => "~/.ssh/id_rsa.pub", :destination => "/tmp/key"
+    krib.vm.provision :file, :source => ssh_key_file, :destination => "/tmp/key"
     krib.vm.provision :shell, :inline => <<-EOF
       cat /tmp/key >> /home/vagrant/.ssh/authorized_keys
       mkdir -p /root/.ssh
       cp /home/vagrant/.ssh/authorized_keys /root/.ssh/authorized_keys
-      sed -i 's/127.0.0.1.*krib.example.net/192.168.87.11 krib.example.net/' /etc/hosts
     EOF
     krib.vm.provision :ansible do |ansible|
       ansible.groups = {
@@ -52,9 +52,8 @@ Vagrant.configure("2") do |config|
       ansible.limit = 'all,localhost'
       ansible.raw_ssh_args = ["-o IdentityFile=~/.ssh/id_rsa"]
       ansible.extra_vars = {
-        "boot_disk": "vda",
-        "cluster_domain": "example.net",
-        "master_count": ENV["NUM_MASTERS"]||(nodes.length >= 3 ? 3 : 1)
+        "master_count": ENV["NUM_MASTERS"]||(nodes.length >= 3 ? 3 : 1),
+        "admin_ssh_pub_key_file": ssh_key_file,
       }
     end
   end

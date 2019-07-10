@@ -2,6 +2,8 @@
 
 - hosts: krib
   become: yes
+  vars_files:
+  - config.yml
   tasks:
   - import_role:
       name: digitalrebar-provision
